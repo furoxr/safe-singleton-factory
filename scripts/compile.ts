@@ -22,23 +22,28 @@ async function writeBytecode(bytecode: string) {
 	await filesystem.writeFile(filePath, bytecode, { encoding: 'utf8', flag: 'w' })
 }
 
-async function writeFactoryDeployerTransaction(contract: CompilerOutputContract, chainId: number, overwrites?: { gasPrice?: number, gasLimit?: number, nonce?: number}) {
+async function writeFactoryDeployerTransaction(contract: CompilerOutputContract, chainId: number, overwrites?: { gasPrice?: number, gasLimit?: number, nonce?: number }) {
 	const deploymentBytecode = contract.evm.bytecode.object
 
 	const nonce = overwrites?.nonce || 0
-	const gasPrice = overwrites?.gasPrice != undefined ? overwrites.gasPrice : 100*10**9
+	const gasPrice = overwrites?.gasPrice != undefined ? overwrites.gasPrice : 100 * 10 ** 9
 	// actual gas costs last measure: 59159; we don't want to run too close though because gas costs can change in forks and we want our address to be retained
-	const gasLimit = overwrites?.gasLimit || 100000
+	const gasLimit = overwrites?.gasLimit || 80000
 	const value = 0
 	const data = arrayFromHexString(deploymentBytecode)
 
 	if (!process.env.MNEMONIC) throw Error("MNEMONIC is required")
-	const signer = ethers.Wallet.fromMnemonic(process.env.MNEMONIC!!)
+	// const signer = ethers.Wallet.fromMnemonic(process.env.MNEMONIC!!)
+	const signer = new ethers.Wallet(process.env.MNEMONIC!!)
+	console.log({
+		nonce, gasPrice, gasLimit, value, data, 
+	})
 	const signedEncodedTransaction = await signer.signTransaction({
-		nonce, gasPrice, gasLimit, value, data, chainId
+		nonce, gasPrice, gasLimit, value, data, 
 	})
 	const signerAddress = await signer.getAddress()
-	const contractAddress = ethers.utils.getContractAddress({ from: signerAddress, nonce } )
+	console.log(signerAddress);
+	const contractAddress = ethers.utils.getContractAddress({ from: signerAddress, nonce })
 
 	const filePath = path.join(__dirname, "..", "artifacts", `${chainId}`, "deployment.json")
 	const fileContents = `{
@@ -56,7 +61,7 @@ function arrayFromHexString(value: string): Uint8Array {
 	const normalized = (value.length % 2) ? `0${value}` : value
 	const bytes: number[] = []
 	for (let i = 0; i < normalized.length; i += 2) {
-		bytes.push(Number.parseInt(`${normalized[i]}${normalized[i+1]}`, 16))
+		bytes.push(Number.parseInt(`${normalized[i]}${normalized[i + 1]}`, 16))
 	}
 	return new Uint8Array(bytes)
 }
